@@ -3,9 +3,70 @@ package com.example.saketh.zichoir_v2;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.util.Log;
+
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 
 public class PeerSongsService extends Service {
+
+    //Constants
+    static final int PeerServerPort = 9988;
+    static final String SongsFolderPath = "/sdcard/TempSongs/";
+    final static int BufferSize = 1024;
+
+    // Server details
+    static ServerSocket PeerSocketServer;
+    static Socket PeerSocket;
+
+    static String CurrentSongName;
+
+    static DataOutputStream dos;
+    static BufferedInputStream bis;
+
+    static ObjectInputStream ois;
+
     public PeerSongsService() {
+        try {
+            PeerSocketServer = new ServerSocket(PeerServerPort);
+
+            // Infinite loop Server
+            while(true){
+                PeerSocket = PeerSocketServer.accept();
+                Log.d("PEER", "Accepted connection from IP : "+ PeerSocket.getInetAddress().getHostAddress());
+                ois = new ObjectInputStream(PeerSocket.getInputStream());
+
+                CurrentSongName = (String) ois.readObject();
+                File songFile = new File(SongsFolderPath+CurrentSongName);
+                bis = new BufferedInputStream(new FileInputStream(songFile));
+
+                int fileSize = (int) songFile.length();
+
+                byte[] b = new byte[fileSize];
+
+                bis.read(b);
+                dos.write(b, 0, fileSize);
+
+                dos.flush();
+//                dos.close();
+                bis.close();
+                PeerSocket.close();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

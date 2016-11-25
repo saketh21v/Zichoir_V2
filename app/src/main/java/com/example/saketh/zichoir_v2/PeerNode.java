@@ -1,10 +1,13 @@
 package com.example.saketh.zichoir_v2;
 
+import java.io.Serializable;
+
 /**
  * Created by Saketh on 25-11-2016.
  */
 
-public class PeerNode {
+public class PeerNode implements Serializable{
+
     public final String ID;
     public final String IP;
     public final String[] songNames;

@@ -32,7 +32,7 @@ public class PlayScreen extends AppCompatActivity {
     static final String ID = "#2222";
     static final int PeerServerPort = 9988;
 
-    static String SongsFolderPath = "/sdcard/TempSongs/";
+    static final String SongsFolderPath = "/sdcard/TempSongs/";
     static String[] LocalSongs;
 
     static final String CentralServerIP = "10.6.4.246";
