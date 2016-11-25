@@ -1,10 +1,12 @@
 package com.example.saketh.zichoir_v2;
 
+import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -13,6 +15,9 @@ import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -24,30 +29,35 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 public class PlayScreen extends AppCompatActivity {
 
-    static final String ID = "#2222";
+//    static final String ID = "#2222";
     static final int PeerServerPort = 9988;
 
-    static final String SongsFolderPath = "/sdcard/TempSongs/";
-    static String[] LocalSongs;
-
-    static final String CentralServerIP = "10.6.4.246";
-    static final int CentralServerPort = 4455;
-
-    static int NoOfPeers = 0;
-    static PeerNode[] PeerNodes;
-
-    static PeerNode CurrentPeer;
+    static String CurrentPeerIP;
     static String CurrentSong;
 
-    static File TempSongFile = new File("/sdcard/TempSong.mp3");
+    static File TempSongFile = new File("/sdcard/TempS/TempSong.mp3");
     static Uri TempSongFileUri = Uri.parse(TempSongFile.getAbsolutePath());
 
     static MediaPlayer SongPlayer;
+    static ProgressBar progressBar;
+
+    static int prog;
+
+    AsyncTask<Void, Void, Void> GetSongAsyncTask = new GetSongAsync();
+
+    //UI elements
+    Button button;
+
+    Handler handler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,43 +68,51 @@ public class PlayScreen extends AppCompatActivity {
 
         // Initializing :
         // Parse local songs and upload to catalogue.
-        localCatalogueUpload();
+//        localCatalogueUpload();
 
         // Retrieve catalogue from cloud
-        retrieveCloudCatalogue();
+//        retrieveCloudCatalogue();
 
-    }
+        Bundle extras = getIntent().getExtras();
+        CurrentSong = extras.getString("CurrentSong");
+        CurrentPeerIP = extras.getString("CurrentPeerIP");
 
-    protected void retrieveLocalSongNames(){
-        File songsFolder = new File(SongsFolderPath);
-        LocalSongs = songsFolder.list();
-    }
+        Log.d("SONG", "CurrentSong : "+CurrentSong + " CurrentIP : "+ CurrentPeerIP);
 
-    protected void localCatalogueUpload(){
-        retrieveLocalSongNames();
-    }
+        button = (Button) findViewById(R.id.button);
 
-    protected void retrieveCloudCatalogue(){
-        // initial socket setup to connect to central server
-        try {
-            Socket centralServerSocket = new Socket(CentralServerIP, CentralServerPort);
-            ObjectInputStream ois = new ObjectInputStream(centralServerSocket.getInputStream());
+        button.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+//                        String[] strings = {"10.6.12.24"};
+                        Toast.makeText(PlayScreen.this, "I'm here", Toast.LENGTH_SHORT).show();
+                        GetSongAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                    }
+                }
+        );
 
-            //Retrieving NoOfPeers
-            NoOfPeers = (Integer) ois.readObject();
+        progressBar = (ProgressBar) findViewById(R.id.progressBar2);
+//        while(prog < 90){
+//            progressBar.setProgress(prog);
+//        }
 
-            //Loop to retrive the Peer Objects
-            PeerNodes = new PeerNode[NoOfPeers];
-            for(int i=0;i<NoOfPeers;i++){
-                PeerNodes[i] = (PeerNode) ois.readObject();
+        handler = new Handler() {
+            @Override
+            public void publish(LogRecord logRecord) {
+                progressBar.setProgress(prog);
             }
-            //Done retrieving peers
-            centralServerSocket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
+
+            @Override
+            public void flush() {
+
+            }
+
+            @Override
+            public void close() throws SecurityException {
+
+            }
+        };
     }
 
     public void playSong(){
@@ -116,14 +134,13 @@ public class PlayScreen extends AppCompatActivity {
             );
 
             SongPlayer.prepareAsync();
-            Log.d("PLAYING", "Playing");
+            Log.d("SONG", "Playing");
 
             SongPlayer.setOnCompletionListener(
                     new MediaPlayer.OnCompletionListener() {
                         @Override
                         public void onCompletion(MediaPlayer mediaPlayer) {
                             mediaPlayer.release();
-                            mediaPlayer = null;
                             SongPlayer = null;
                         }
                     }
@@ -134,12 +151,14 @@ public class PlayScreen extends AppCompatActivity {
     }
 
 
-    private class GetSongAsync extends AsyncTask<String, Void, Void> {
+    protected class GetSongAsync extends AsyncTask<Void, Void, Void> {
 
         @Override
-        protected Void doInBackground(String... strings) {
+        protected Void doInBackground(Void... voids) {
             try {
-                Socket selectedSongSocket = new Socket(CurrentPeer.IP, PeerServerPort);
+                Log.d("SONG", "Connecting to IP : "+ CurrentPeerIP+" Port : "+ PeerServerPort);
+                Socket selectedSongSocket = new Socket(CurrentPeerIP, PeerServerPort);
+                Log.d("SONG", "Connected");
 
                 ObjectOutputStream ous = new ObjectOutputStream(selectedSongSocket.getOutputStream());
                 ous.writeObject(CurrentSong);
@@ -148,14 +167,22 @@ public class PlayScreen extends AppCompatActivity {
                 DataInputStream dis = new DataInputStream(selectedSongSocket.getInputStream());
                 DataOutputStream dos = new DataOutputStream(new FileOutputStream(TempSongFile, false));
 
+                Log.d("SONG", "In GetSyn");
+
+                int max = (int) (4.66 * 1024 * 1024);
+                int recv = 0;
                 // Receive song and write into the tempSong file
                 byte[] buffer = new byte[1024];
-                int len = 0;
+                int len = 1024;
                 int count = 0;
-                while(len > -1){
+                while(!(len < 1024)){
                     len = dis.read(buffer);
                     dos.write(buffer, 0, len);
-                    Log.d("SONG", "count = "+count+" len = "+len);
+                    Log.d("SONG", "count = "+count+++" len = "+len);
+
+                    recv+=len;
+                    prog = (recv/max)*100;
+                    handler.publish(null);
                 }
                 // Socket and Stream Cleanup
                 dos.flush();
@@ -173,15 +200,9 @@ public class PlayScreen extends AppCompatActivity {
             super.onPostExecute(aVoid);
 //            Uri uri = Uri.parse("file:///sdcard/TempS/OSaiyyan.mp3");
             playSong();
-            Log.d("TOAST", "Exiting");
+            Log.d("SONG", "Exiting");
         }
     }
-
-
-
-
-
-
 
 
 
