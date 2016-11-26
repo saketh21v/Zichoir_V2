@@ -50,9 +50,9 @@ public class PeerSongsService extends Service {
 
                 // Infinite loop Server
                 while(true){
-                    Log.d("PEER", "Waiting...");
+                    Log.d("SONG", "Waiting...");
                     PeerSocket = PeerSocketServer.accept();
-                    Log.d("PEER", "Accepted connection from IP : "+ PeerSocket.getInetAddress().getHostAddress());
+                    Log.d("SONG", "Accepted connection from IP : "+ PeerSocket.getInetAddress().getHostAddress());
                     ois = new ObjectInputStream(PeerSocket.getInputStream());
                     dos = new DataOutputStream(PeerSocket.getOutputStream());
 
@@ -85,6 +85,7 @@ public class PeerSongsService extends Service {
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
             Toast.makeText(getApplicationContext(), "Completed Asynctask from Server", Toast.LENGTH_SHORT).show();
+            Log.d("SONG", "Server Exited. Something went wrong...");
         }
     }
 

@@ -86,7 +86,7 @@ public class PlayScreen extends AppCompatActivity {
                     @Override
                     public void onClick(View view) {
 //                        String[] strings = {"10.6.12.24"};
-                        Toast.makeText(PlayScreen.this, "I'm here", Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(PlayScreen.this, "I'm here", Toast.LENGTH_SHORT).show();
                         GetSongAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                     }
                 }
@@ -165,7 +165,8 @@ public class PlayScreen extends AppCompatActivity {
                 ous.flush();
 
                 DataInputStream dis = new DataInputStream(selectedSongSocket.getInputStream());
-                DataOutputStream dos = new DataOutputStream(new FileOutputStream(TempSongFile, false));
+//                DataOutputStream dos = new DataOutputStream(new FileOutputStream(TempSongFile, false));
+                BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(TempSongFile, false));
 
                 Log.d("SONG", "In GetSyn");
 
@@ -175,18 +176,26 @@ public class PlayScreen extends AppCompatActivity {
                 byte[] buffer = new byte[1024];
                 int len = 1024;
                 int count = 0;
-                while(!(len < 1024)){
-                    len = dis.read(buffer);
-                    dos.write(buffer, 0, len);
-                    Log.d("SONG", "count = "+count+++" len = "+len);
 
-                    recv+=len;
+                int fileSize = 0;
+                while ((len = dis.read(buffer)) > -1) {
+//                    Log.d("TOAST", "In While");
+                    bos.write(buffer, 0, len);
+                    bos.flush();
+//                    bos.close();
+                    fileSize+=len;
                     prog = (recv/max)*100;
                     handler.publish(null);
+//                    if(count++ == 1000){
+//                        playSong(uri);
+//                    }
+                    Log.d("TOAST", count+" "+len);
                 }
+                Log.d("TOAST", "Total Size : "+(float)(fileSize)/ (1024*1024));
                 // Socket and Stream Cleanup
-                dos.flush();
-                dos.close();
+//                dos.flush();
+//                dos.close();
+                bos.close();
                 selectedSongSocket.close();
 
             } catch (IOException e) {
